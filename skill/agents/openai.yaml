@@ -1,0 +1,4 @@
+interface:
+  display_name: Academic Tree Reproduction
+  short_description: Build academic genealogy trees with publication metadata
+  default_prompt: Reproduce an AcademicTree genealogy and enrich it with OpenAlex and DBLP metadata.
