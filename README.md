@@ -4,6 +4,12 @@ Interactive academic genealogy with a left-to-right force layout, author search,
 
 ## Cloudflare Pages
 
+### Workers Git deployment
+
+If the connected project shows a deploy command of `npx wrangler deploy`, keep that command and leave the build command empty. Use repository root `/`. The included `wrangler.jsonc` publishes `site` as static assets without a Worker script or API credentials in the repository. The project is deployed as a Workers static asset site; its default URL is on `workers.dev`.
+
+### Pages Git deployment
+
 Connect this repository using Pages Git integration:
 
 - Production branch: `main`
