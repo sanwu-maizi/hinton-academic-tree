@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "hinton-academic-tree",
+  "name": "crimson-water-d01c",
   "compatibility_date": "2026-10-14",
   "assets": {
     "directory": "./site"
