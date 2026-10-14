@@ -9,7 +9,7 @@ forceNodes.forEach(n=>{const box=nodeElements.get(n.id).querySelector('text').ge
 // Resolve the whole circle-plus-label rectangle, rather than just the circle.
 function labelCollision(){
  let nodes=[];
- function force(){
+ function force(alpha){
   for(let pass=0;pass<3;pass++)for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
    const a=nodes[i],b=nodes[j],pad=8;
    const ax=a.x+a.vx,ay=a.y+a.vy,bx=b.x+b.vx,by=b.y+b.vy;
@@ -18,8 +18,8 @@ function labelCollision(){
    const top=Math.max(ay-Math.max(ar,a.labelHeight/2)-pad,by-Math.max(br,b.labelHeight/2)-pad),bottom=Math.min(ay+Math.max(ar,a.labelHeight/2)+pad,by+Math.max(br,b.labelHeight/2)+pad);
    if(right<=left||bottom<=top)continue;
    const dx=right-left,dy=bottom-top;
-   if(dy<dx){const push=(dy+.5)*.5*(ay<=by?-1:1);if(a.fy==null)a.vy+=push;if(b.fy==null)b.vy-=push}
-   else{const push=(dx+.5)*.5*(ax<=bx?-1:1);if(a.fx==null)a.vx+=push;if(b.fx==null)b.vx-=push}
+   if(dy<dx){const push=(dy+.5)*.5*alpha*(ay<=by?-1:1);if(a.fy==null)a.vy+=push;if(b.fy==null)b.vy-=push}
+   else{const push=(dx+.5)*.5*alpha*(ax<=bx?-1:1);if(a.fx==null)a.vx+=push;if(b.fx==null)b.vx-=push}
   }
  }
  force.initialize=value=>nodes=value;return force;
@@ -47,8 +47,6 @@ highlight=function(id){
 nodeElements.forEach((g,id)=>{
  const circle=g.querySelector('circle'),base=circle.getAttribute('fill');
  circle.setAttribute('fill',authors.get(id)?.match_status==='matched'?base:'#b8c4bd');
- g.addEventListener('pointerenter',()=>{simulation.alphaTarget(.035).restart()});
- g.addEventListener('pointerleave',()=>simulation.alphaTarget(0));
 });
 let forceDrag=null;
 svg.onpointerdown=e=>{
