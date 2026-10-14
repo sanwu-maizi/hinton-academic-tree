@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Use saved public tree HTML; no challenge solving or private endpoints."""
-import json, re, subprocess, time, unicodedata, hashlib, os
+import json, re, subprocess, time, unicodedata, hashlib, os, argparse
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode
 from difflib import SequenceMatcher
@@ -28,7 +28,17 @@ def request(url, path):
         data=json.loads(result.stdout);write(path,data);return data
     except ValueError:return {'error':result.stderr or result.stdout[:200]}
 def main():
-    raw_html=Path('outputs/academictree-access-evidence/tree.html').read_text()
+    global BASE,OUT
+    ap=argparse.ArgumentParser()
+    ap.add_argument('--tree-url',default=BASE)
+    ap.add_argument('--tree-html',default='outputs/academictree-access-evidence/tree.html')
+    ap.add_argument('--output',default=str(OUT))
+    ap.add_argument('--root-query',default=None)
+    ap.add_argument('--root-author-id',default=None)
+    args=ap.parse_args();BASE=args.tree_url;OUT=Path(args.output)
+    root=urlparse(BASE).path.strip('/').split('/')[0]+':'+parse_qs(urlparse(BASE).query)['pid'][0]
+    root_author_id=args.root_author_id or ('A5108093963' if root=='computerscience:1446' else None)
+    raw_html=Path(args.tree_html).read_text()
     doc=html.fromstring(raw_html)
     raw_names={}
     for raw_link in re.finditer(r'<a\b([^>]*class=["\']centerNode["\'][^>]*)>(.*?)</a>',raw_html,re.S|re.I):
@@ -83,7 +93,7 @@ def main():
                 b=min(later,key=lambda x:x.sourceline)
                 if link_ids[b]!=link_ids[a]:edges[(link_ids[a],link_ids[b])]={'source_id':link_ids[a],'target_id':link_ids[b],'relation':'training','confidence':'tree-structure','source_url':BASE}
                 break
-    root='computerscience:1446';depth={root:0}
+    depth={root:0}
     for _ in range(12):
         for p,c in edges:
             if p in depth and c not in depth:depth[c]=depth[p]+1
@@ -93,7 +103,7 @@ def main():
     authors=[];works={};budget_exhausted=False
     for index,n in enumerate(nodes.values()):
         cache=OUT/'source-records'/n['id'].replace(':','_');cache.mkdir(parents=True,exist_ok=True)
-        query='Geoffrey Hinton' if n['id']==root else n['name']
+        query=(args.root_query or ('Geoffrey Hinton' if root=='computerscience:1446' else n['name'])) if n['id']==root else n['name']
         search_path=cache/('search-'+hashlib.sha256(query.encode()).hexdigest()[:12]+'.json')
         search={'error':'budget_exhausted; resume with OPENALEX API access'} if budget_exhausted and not search_path.exists() else request('https://api.openalex.org/authors?'+urlencode({'search':query,'per-page':5}),search_path)
         if 'budget' in str(search.get('message','')).lower() or 'Rate limit' in str(search.get('error','')):budget_exhausted=True
@@ -103,11 +113,11 @@ def main():
             return max([SequenceMatcher(None,norm(n['name']),norm(v)).ratio() for v in names] or [0])
         ranked=sorted(candidates,key=score,reverse=True);best=ranked[0] if ranked else None
         accepted=best is not None and score(best)>=.87 and (len(ranked)==1 or score(best)-score(ranked[1])>=.04)
-        if n['id']==root:
-            best=next((x for x in candidates if x['id'].endswith('A5108093963')),None)
-            if best is None:best={'id':'https://openalex.org/A5108093963','display_name':'Geoffrey E. Hinton'}
+        if n['id']==root and root_author_id:
+            best=next((x for x in candidates if x['id'].endswith(root_author_id)),None)
+            if best is None:best={'id':'https://openalex.org/'+root_author_id,'display_name':query}
             accepted=True
-        author={'node_id':n['id'],'name':n['name'],'identity_verified':bool(n['id']==root and accepted),'match_status':'matched' if accepted else 'ambiguous' if candidates else 'not_found','match_score':score(best) if best else 0,'match_method':'name-variants; Hinton explicitly verified','candidates':[{'id':x['id'],'name':x.get('display_name'),'score':score(x)} for x in ranked],'openalex':best if accepted else None,'works':[],'pagination_status':'not_started'}
+        author={'node_id':n['id'],'name':n['name'],'identity_verified':bool(n['id']==root and root_author_id and accepted),'match_status':'matched' if accepted else 'ambiguous' if candidates else 'not_found','match_score':score(best) if best else 0,'match_method':'name-variants; explicit root override if supplied','candidates':[{'id':x['id'],'name':x.get('display_name'),'score':score(x)} for x in ranked],'openalex':best if accepted else None,'works':[],'pagination_status':'not_started'}
         if search.get('error') and not accepted:author['match_status']='api_error';author['error']=search
         if accepted:
             cursor='*';page_no=0;seen=set();author['pagination_status']='complete'

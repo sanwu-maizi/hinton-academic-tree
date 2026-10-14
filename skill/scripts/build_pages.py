@@ -1,19 +1,30 @@
 """Build progressive Pages assets: graph first, author records on demand."""
 import gzip
+import argparse
+import html
 import hashlib
 import json
 from pathlib import Path
 import zipfile
 
 scripts=Path(__file__).parent
-data=Path('outputs/hinton-academic-tree/data')
-out=Path('outputs/cloudflare-pages-progressive')
+ap=argparse.ArgumentParser()
+ap.add_argument('--data',default='outputs/hinton-academic-tree/data')
+ap.add_argument('--output',default='outputs/cloudflare-pages-progressive')
+ap.add_argument('--root')
+ap.add_argument('--title')
+args=ap.parse_args()
+data=Path(args.data)
+out=Path(args.output)
+manifest=json.loads((data/'manifest.json').read_text()) if (data/'manifest.json').exists() else {}
 out.mkdir(parents=True,exist_ok=True)
 def compact(value):return json.dumps(value,ensure_ascii=False,separators=(',',':')).encode()
 def store(name,value):
     target=out/name;target.parent.mkdir(parents=True,exist_ok=True)
     target.write_bytes(gzip.compress(compact(value),compresslevel=6))
 nodes=json.loads((data/'nodes.json').read_text())
+root=args.root or manifest.get('root') or nodes[0]['id']
+title=args.title or manifest.get('title') or next(n['name'] for n in nodes if n['id']==root)+' 学术谱系'
 edges=json.loads((data/'edges.json').read_text())
 authors=json.loads((data/'authors.json').read_text())
 works=json.loads((data/'works.json').read_text())
@@ -51,14 +62,16 @@ show=async function(id){
 };
 '''
 template=(scripts/'viewer.html').read_text()
+template=template.replace('computerscience:1446',root).replace('Hinton 学术谱系',html.escape(title))
+template=template.replace('AcademicTree 来源','${esc(n.source_name||n.tree||"谱系")} 来源')
 template=template.replace('const D=__DATA__;','const D=await readCompressed("graph.bin");')
 template=template.replace('<script>const D=','<script src="d3.min.js"></script><script>'+loader+'(async()=>{try{const D=')
 template=template.replace('center(selected);show(selected);','center(selected);')
-tail=lazy+'\n'+(scripts/'interactions.js').read_text()+'\n'+(scripts/'force_graph.js').read_text()+'\nrequestAnimationFrame(()=>requestAnimationFrame(()=>show(selected)));'
+tail=lazy+'\n'+(scripts/'interactions.js').read_text()+'\n'+(scripts/'force_graph.js').read_text().replace('computerscience:1446',root)+'\nrequestAnimationFrame(()=>requestAnimationFrame(()=>show(selected)));'
 template=template.replace('</script></html>',tail+"\n}catch(error){document.querySelector('#panel').textContent='图谱加载失败：'+error.message;}})();</script></html>")
 (out/'index.html').write_text(template)
 (out/'d3.min.js').write_bytes((scripts/'d3.min.js').read_bytes())
-with zipfile.ZipFile('outputs/cloudflare-pages-progressive.zip','w',zipfile.ZIP_DEFLATED) as archive:
+with zipfile.ZipFile(str(out)+'.zip','w',zipfile.ZIP_DEFLATED) as archive:
     for path in sorted(out.rglob('*')):
         if path.is_file():archive.write(path,path.relative_to(out))
 print(json.dumps({'graph_bytes':(out/'graph.bin').stat().st_size,'author_files':len(authors),'initial_bytes':sum((out/f).stat().st_size for f in ['index.html','graph.bin','d3.min.js']),'total_bytes':sum(p.stat().st_size for p in out.rglob('*') if p.is_file())}))

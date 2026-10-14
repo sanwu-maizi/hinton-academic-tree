@@ -2,6 +2,10 @@
 
 Interactive academic genealogy with a left-to-right force layout, author search, publication details and citation metrics. Graph data loads first; author records load on demand.
 
+The top tabs switch between Hinton, Paul Dirac and Terence Tao. Each graph is loaded on its first selection and retains its view when switching back. Direct links support `#hinton`, `#dirac`, and `#tao`.
+
+Dirac: AcademicTree physics PID 48874, 138 nodes, 143 training relationships, 71 matched source nodes and 12,311 distinct works. Tao: Mathematics Genealogy Project ID 43967, 27 nodes (advisor, Tao and 25 direct students), 26 explicit PhD advisor relationships; only Tao's 722 works have been enriched. Other Tao family members are not processed, not zero-publication authors. MGP source: https://www.genealogy.math.ndsu.nodak.edu/id.php?id=43967 . These are bounded source snapshots, not exhaustive genealogies. Source labels are preserved in the graphs.
+
 ## Cloudflare Pages
 
 ### Workers Git deployment
